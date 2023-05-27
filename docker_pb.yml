@@ -1,0 +1,51 @@
+- hosts: app
+  become: true
+  tasks:
+    - name: docker_ubuntu
+      apt: 
+        name:
+          - docker 
+          - docker.io 
+          - docker-registry
+          - docker-compose
+        update_cache: yes
+        state: latest
+      when: ansible_os_family == "Debian"
+
+    - name: docker_centos
+      yum: name=docker update_cache=yes state=latest
+      when: ansible_os_family == "RedHat"
+  
+    - name: Start Docker
+      service: name=docker state=started enabled=yes
+
+
+- hosts: database
+  become: true
+  tasks:
+    - name: Install required packages
+      apt:
+         name:
+           - wget
+           - python3-psycopg2
+           - acl
+           - python-apt
+         state: latest
+    - name: Install postgresql
+      apt:
+        name: postgresql-{{ ver }}
+        update_cache: yes
+
+    - name: Start PostgreSQL
+      service: name=postgresql state=started enabled=yes
+   
+    - name: Creates directory
+      file:
+        path: "{{ data_dir }}"
+        state: directory
+    - name: change cfg
+      template:
+        src: postgresql.conf.j2
+        dest: /etc/postgresql/{{ ver }}/main/postgresql.conf
+    - name: reStart PostgreSQL
+      service: name=postgresql state=restarted enabled=yes
